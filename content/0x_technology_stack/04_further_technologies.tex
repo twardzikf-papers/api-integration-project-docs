@@ -1,0 +1,30 @@
+\namedsection{Weitere Bibliotheken}{J}
+\label{sec:libraries}
+Dieser Abschnitt beschreibt Bibliotheken die in unserem Projekt zur Anwendung gekommen sind. Generell sollte man sich den Ablauf für das Beziehen von Daten vergegenwärtigen. Zunächst können Drittsystem auf unterschiedlichen Wegen angesprochen werden. Das kann auf Protokollebene sein wie SOAP, REST oder QDX aber auch im Bezug auf die Beschaffenheit der Daten. Diese müssen in den meisten Fällen auf unsere definierten Domänenmodelle angepasst werden. Erst dann können die Daten schlussendlich in unsere Datenbank zwischengespeichert werden. Die meisten der aufgeführten Bibliotheken helfen uns genau für diesen Fall weiter.
+
+\subsection*{Project Lombok}
+Eine immense Arbeitserleichterung verschafft uns der Annotation-Processor Project Lombok das den meisten Boilerplate-Code für uns automatisch generiert. So müssen zum Beispiel keinerlei getters und setters mehr für Datenklassen geschrieben werden. Genauso vereinfacht es das Erstellen von Builder-Klassen oder das Depenedency Injection.
+
+\subsection*{MapStruct}
+In einigen Fällen kann es vorkommen, dass die Daten für das Zielformat aus mehreren Einzelklassen zusammengestellt werden muss oder die Daten nicht genau in unserem gewünschten Format vorliegen. Dafür kann MapStruct verwendet werden. Eine oder mehrere Datenklassen können so in eine einzelne neue Datenklasse transformiert werden.
+
+\subsection*{MyBatis}
+Um Drittsysteme anbinden zu können muss zunächst ein Zugang zu diesen bestehen. MyBatis nutzt dazu im Hintergrund den JDBC-Treiber. Anhand von XML-Dateien kann der Query für die Datenabfrage festgelegt werden. Darüber hinaus kann man ebenfalls hinzufügen wie die Daten auf eine Datenklasse gemappt werden soll. MyBatis schickt dazu als erstes die definierte Abfrage über den JDBC-Treiber an die Datenbank und wandelt die Rückgabe entsprechend der Mapvorschriften um.
+
+\subsection*{Quartz}
+Als Grundlage für unseren Scheduler nutzen wir Quartz. Dieser kommt bereits mit all den benötigten Konzepten für das Scheduling, so dass die wichtigsten Nutzungsszenarien abgedeckt werden können.
+
+Zu jedem Job gibt es eine JobDetail Klasse die spezifiziert welche Arbeitseinheit bei Ausführung erledigt werden soll. Ein Trigger wiederum beschreibt den Mechanismus zur Ausführung eines JobDetails. Das kann entweder ein Intervall-Auslöser sein aber auch als CRON-Job Beschreibung.
+Jeder JobDetail kann mehrere Trigger beinhalten aber ein Trigger kann nur einem JobDetail zugeordnet sein.
+
+\subsection*{JAXB}
+Weil der Payload aus SOAP oder REST Schnittstellen möglicherweise in XML vorliegen oder die Struktur nicht unserem Schema entsprechen müssen diese transformiert werden. JAXB hilft dabei XML Payloads auf Datenklassen zu mappen. Ebenfalls erwähnenswert ist die Möglichkeit mit JAXB aus XML-Schemata automatisch Datenklassen erstellen zu lassen.
+
+\subsection*{RestTemplate}
+ Mit der Hilfe von RestTemplate wird das für REST APIs erreicht was durch MyBatis mit Datenbanken erzielt wird. Es dient als Gateway die Kommunikation mit REST Schnittstellen.
+
+\subsection*{Vue.js}
+Das Web-Frontend-Framework Vue.js wird dazu benutzt eine Benutzeroberfläche für das Scheduling der Batch-Jobs zu erstellen. Aufgrund der großen Bekanntheit und die Nutzung auch intern bei Statistance haben wir uns für diese Technologie entschieden anstatt andere übliche Web-Frontend-Frameworks wie React, Angular oder Svelte.
+
+\subsection*{Bootstrap}
+Dieses beliebte CSS-Framework erleichtert es schnell gute Webseiten zu gestalten. Dazu stellt es diverse Klassen zur Verfügung die dabei helfen typische Elemente für die Gestaltung zu realisieren.

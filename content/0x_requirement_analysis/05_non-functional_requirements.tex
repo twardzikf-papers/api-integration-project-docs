@@ -1,0 +1,50 @@
+\namedsection{Nicht-Funktionale Anforderungen}{Filip}
+\label{sec:non-functional}
+Nichtfunktionale Anforderungen werden auch technische Anforderungen genannt. Im Gegensatz zu funktionalen Anforderungen beschreiben sie nicht was ein Softwareprodukt machen soll, sondern wie es arbeiten soll. Dadurch, dass die Unterscheidung liegt oft an der Formulierung der Anforderung, ist die Abgrenzung häufig nicht einfach.\\ Ein Beispiel für eine solche Anforderung kann eine Anforderung sein, die sich auf einen Sicherheitsaspekt bezieht. 
+
+\begin{itemize}
+	\item Das System sollte den unbefugten Zugriff auf Daten verhindern.
+	\item Der Zugang zu den Daten sollte nur nach Eingabe des richtigen Benutzernamens und Passworts möglich sein.
+\end{itemize}
+
+Obwohl beide Formeln denselben Aspekt abdecken, spricht die erstere nur von dem, was erreicht werden soll, ohne im Detail darauf einzugehen, wie es erreicht werden kann. Die zweite Formulierung wiederum schlägt eine spezifische Strategie vor, um den Anforderungen an die Datensicherheit gerecht zu werden. Aus diesem Grund würde Ersteres als nichtfunktionale Anforderung betrachtet werden, während Letzteres als funktionale Anforderung betrachtet würde.\\
+Nach Gesprächen mit Statistance bezüglich der Spezifikationen konnten wir die wichtigsten nicht-funktionalen Anforderungen an unser System klären.
+
+\namedsubsection{Sicherheit}{M}
+\textit{Der Zugang zu den Daten kann nur durch die Eingabe des richtigen Benutzernamens und Passworts erfolgen.} \\
+Eine der wichtigsten nicht-funktionalen Anforderungen an die meisten IT-Systeme ist die Datensicherheit - seien es Systemdaten oder von Systembenutzern eingegebene Daten. Im Fall unseres Projekts handelt es sich um Daten über die Unternehmensressourcen vieler Unternehmen, daher wurde diese Anforderung zuerst vorgestellt. 
+
+
+\namedsubsection{Anpassbarkeit}{J \label{anpassbarkeit}
+\textit{Das System kann für die Verwendung verschiedener Quellsysteme verwendet und angepasst werden.} \\
+\newline Eine der Kernanforderungen und Herausforderungen dieses Projektes liegt in der Heterogenität der ERP-Systeme auf welchen Statistance seine Software in Zukunft aufsetzen möchte. Neben einer Vielzahl an ERP-System Anbietern mit verschiedensten Endprodukten gibt es im Normalfall für jedes System die Möglichkeit kundenspezifische Anpassungen vorzunehmen. Diese Anpassungen können meist nicht durch ein Standard-Datenmodell erfasst werden. Unser System muss entsprechend für verschiedene Systeme ohne zusätzlichen Programmieraufwand angepasst werden können um eine einfache Integration neuer Systeme gewährleisten zu können.
+
+\namedsubsection{Konfigurations Management}{J} \label{configmgmt}
+\textit{Die notwendigen Konfigurationen können zentral und ohne direkten Code Zugriff angepasst werden.} \\ 
+\newline Ähnlich zu \ref{anpassbarkeit} können nicht nur die Quellsysteme, sondern auch die zugrundeliegenden IT Infrastrukturen sich von Kunde zu Kunde unterscheiden. Dies kann beispielsweise die Zugangsdaten zu den Quellsystemen der Kunden umfassen. Diese notwendigen Konfigurationen sollen sich zentral ohne den direkten Zugriff auf den Quellcode verändern und verwalten lassen.
+
+\namedsubsection{Erweitbarkeit}{J}
+\textit{Das Hinzufügen neuer Funktionalitäten soll einfach möglich sein.} \\
+\newline Da es sich um die erste Version dieses Systems handelt und diese primär mit den Anforderungen des Pilotkunden entwickelt wurde ist es wahrscheinlich, dass sich bei der zukünftige Anbindung neuer Kunden weiter sinnvolle Erweiterungen aufzeigen. Das entwickelte System soll es ermöglichen diese zukünftigen neuen Funktionalitäten  einfach zu integrieren.
+
+\namedsubsection{Kosten}{J}
+\textit{Die Kosten für das Einrichtem, Betreiben und Einrichten des Systems dürfen die Lizenzgebühren, welche Statistance erhebt nicht überschreiten.} \\
+\newline Da Statistance selbst Lizenzgebühren für die von Ihnen angebotene Software erhebt dürfen die Grenzkosten, also die Kosten die durch das hinzufügen eines einzelnen neuen Kunden entstehen, die zu erwartenden Einnahmen von Statistance nicht überschreiten
+
+\namedsubsection{Deployment}{J}
+\textit{Das entwickelte System muss auf allen wichtigen Betriebssystemen lauffähig sein.} \\
+\newline Aufgrund der zu erwartenden Heterogenität der IT-Systeme möglicher Kunden ist es notwendig, dass das entwickelte System auf allen großen Betriebssystemen lauffähig ist.
+
+
+\namedsubsection{Benutzerfreundlichkeit}{J}
+\textit{Das entwickelte System soll einfach zu bedienen sein und auch von fach-fremden Personen verwaltet werden können.} \\
+\newline Um langfristig sicher zustellen, dass das System zielgerichtet verwendet und angepasst werden kann, ist es sinnvoll eine Benutzeroberfläche bereitzustellen, über welche auch Personen, welche nicht an der Entwicklung des Systems beteiligt waren Einstellungen und Anpassungen vornehmen können.
+
+
+\namedsubsection{Dokumentation}{J}
+\textit{Das entwickelte System muss so dokumentiert sein, dass ein mögliches neues Entwicklungsteam ohne Rücksprachen eine Weiterentwicklung oder Anpassung vornehmen kann.} 
+\newline Um sicherzustellen, dass das entwickelte System in Zukunft von Statistance weiterentwickelt werden kann ist es notwendig eine ausreichende Dokumentation bereitzustellen. Diese kann dann von Statistance selbst, beziehungsweise einem neuen Entwicklungsteam verwendet werden um die bestehenden Implementierung einfach nachzuvollziehen und diese sinnvoll zu erweitern.
+
+
+
+

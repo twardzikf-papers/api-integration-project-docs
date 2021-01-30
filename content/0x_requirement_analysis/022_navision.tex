@@ -1,0 +1,54 @@
+\namedsubsection{Navision}{J}
+Wenn wir von Navision sprechen ist stets das ERP-System von Microsoft gemeint. Auch wenn es schon seit längerem Microsoft Dynamics NAV oder seit neuestem Microsoft Dynamics 365 Business Central heißt. In diesem Dokument behandeln wir: 
+Wie sich Navision über die Zeit entwickelt hat,
+welche “Objekte” in Navision existieren und warum das wichtig für uns ist,
+wie man Zugriff auf die Daten von Navision erhält (welche Schnittstellen, Webhooks, etc.),
+welche von Statistance benötigten Informationen von Navision abgedeckt werden,
+und wie man es sinnvoll in unsere Architektur integrieren könnte.
+
+\subsubsection*{Versionen}
+\begin{enumerate}
+\item 1995 Erste Version (Navision Financials 1.0) für ein Windows Betriebssystem (Windows 95) veröffentlicht
+\item 2002 Microsoft kauft das Navision Unternehmen
+\item 2005 Microsoft benennt Navision zu Dynamics NAV um
+\item 2008 Mit Dynamics NAV 2009 werden alle internen Vorgänge von Dynamics NAV von den Clients getrennt und in ein Application Server Service ausgekoppelt
+\item 2012 Mit Dynamics NAV 2013 kommt OData Support für Queries dazu (erst ab Dynamics NAV 2013 R2 mit Schreibzugriff) und es wird nur noch der Microsoft SQL Server als DBMS verwendet
+\item 2018 Aktiver Support für alle Versionen vor 2009 läuft aus und das ERP-System firmiert nun unter den Namen Dynamics 365 Business Central
+\end{enumerate}
+
+\subsubsection*{Objekte}
+Alle Funktionen die über Navision genutzt werden können werden intern über Objekte in der Datenbank abgebildet. Die wichtigsten Objekte für eine Datenintegration dürften Page, Query, Dataport und XMLport sein. Diese werden nachfolgend kurz erklärt und ab welcher Version sie nutzbar sind.
+
+\begin{description}
+\item [Page] Wird zur Darstellung von Tabellendaten über den Role Tailored Client (RTC) genutzt. Enthält zusätzlich Informationen darüber wie die Daten dargestellt werden sollen. Pages können als Webservices veröffentlicht werden. Siehe auch Q3 für was alles damit möglich ist und Q4, Q5 wie es in bestehende Systeme aktiviert wird. Ab Version Dynamics NAV 2009.
+\item [Query] Hiermit werden Datenbankabfragen erzeugt. Wird intern von den anderen Objekten genutzt. Ab Version Dynamics NAV 2013.
+\item [Dataport] Zuständig für den Import und Export von Tabellendaten im Plain-Text-Format. Ab Version Dynamics NAV 2013 nicht mehr enthalten. Wurde in XMLport integriert.
+\item [XMLport] Import und Export für Tabellendaten im XML-Format.
+\end{description}
+
+\subsubsection*{OData}
+Das von Microsoft entwickelte Protokoll ist dem von Sage mit SData sehr ähnlich. Allerdings liegt der Payload nicht in Form von Atom Feeds vor und werden als JSON übertragen.
+Speziell seit der Version Dynamics NAV 2013 lassen sich alle relevanten Daten einfach über REST Schnittstellen über den OData Standard abgreifen. Man kann aber auch eine SOAP-Variante nutzen, wenn man möchte\footnote{Siehe auch https://docs.microsoft.com/en-us/dynamics-nav/web-service-alternatives--soap-and-odata für weitere Informationen über beide Möglichkeiten mitsamt deren Unterschiede (Artikel unterscheidet sich nicht wesentlich vom gleichnamigen Artikel für Dynamics NAV 2013 oder Dynamics 365 Business Central)}.
+
+Hier werden alle von Statistance benötigten Schnittstellen aufgelistet die über Navision abgedeckt werden. Die folgenden Informationen beziehen sich auf die aktuelle Version von Navision. Genutzt werden hierbei die Webservices mit OData. Dieses Verfahren ist sowohl On Premise als auch SaaS möglich.
+
+\begin{description}
+    \item[Mitarbeiter \cite{nav_employee}]
+    Es würden noch Title, Salutation, Description und LanguageCode fehlen. Allerdings lassen sich UseCode, SecondFamilyName und NameSuffix anteilig aus den Daten inferien.
+    \item[Lieferant \cite{nav_vendor}]
+    Es fehlen noch Department und In-House Mail. Allerdings kann der Name aus den Daten inferiert werden.
+    \item[Produkt, Lieferung und Bestellung]
+    Muss vermutlich sinnvoll aus den drei Schnittstellen Item \cite{nav_item}, PurchaseInvoice \cite{nav_invoice} und PurchaseInvoiceLine \cite{nav_invoiceline} zusammengestellt werden.
+    \item[Auslastung]
+    Möglicherweise ist die Schnittstelle TimeRegistrationEntity \cite{nav_timeregistrationentry} für die Auslastung der Mitarbeiter nutzbar.
+\end{description}
+
+\subsubsection*{Integrationsszenarien}
+Hier widmen wir uns die Frage wie eine Integration in unsere Architektur theoretisch aussehen könnte. Wenn möglich wird natürlich immer der einfachste Weg bevorzugt. Das bedeutet in unserem Fall REST Services die JSON ausliefern, weil dadurch der Schritt für die Umwandlung, je nach Beschaffenheit der Daten, entfallen kann.
+Nachfolgend werden Varianten für unterschiedliche Navision Versionen vorgestellt. Es wird der Einfachheit wegen davon ausgegangen, dass die ERP-Systeme nicht in größerem Umfang angepasst wurden.
+
+\begin{description}
+\item [Versionen vor Dynamics NAV 2009] Notfalls sollte es für alle Versionen die Möglichkeit geben die Daten direkt aus der Datenbank zu ziehen oder per regelmäßigen Datenexport über die bereits vorgestellten Objekte Dataport und XMLport.
+\item [Versionen vor Dynamics NAV 2013] Für die gewünschten Daten werden Pages angelegt und über ein SOAP Webservice nach außen hin zugänglich gemacht.
+\item [Versionen ab Dynamics NAV 2013] Webservices können entweder als SOAP oder OData im ERP-System aktiviert werden. Bevorzugt OData weil die Daten im JSON-Format übertragen werden und direkt mit Queries arbeiten können.
+\end{description}

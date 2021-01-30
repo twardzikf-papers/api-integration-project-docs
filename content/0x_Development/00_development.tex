@@ -1,0 +1,576 @@
+\chapter{Implementierung}
+Exemplarisch wird in diesem Kapitel dargelegt wie Frontend, API, Security und API-Gateway implementiert sind.
+
+\namedsection{Frontend}{J}
+Wie aus dem Abschnitt zu den verwendeten Technologien bereits bekannt ist findet im Frontend Vue.js, Bootstrap und Axios Verwendung. Allein durch das Framework Vue.js ist die Struktur des Frontend-Projektes bereits grob vorgegeben. Zunächst betrachten wir die Routen. Danach behandeln wir unsere Services und speziell die Authentifizierung über das Frontend.
+
+\subsection{Routen}
+Routen entsprechen Links zu denen man navigieren kann. Sobald eine Route vom Benutzer besucht wird, lädt Vue die hinterlegte Komponente. Routen entsprechen also Mappings zwischen URL-Segmente und Vue-Komponenten wie im Listing zu sehen ist. Die Komponenten im Falle von Routen entsprechen normalerweise Views, welche für die visuelle Darstellung des User Interfaces verantwortlich sind. Zu jeder Route gibt es genau eine View. Eine View ist auch eine Vue-Komponente.
+
+\begin{lstlisting}[language=JavaScript,caption=src/router/index.js][H]
+const routes = [
+  {
+    path: '/',
+    name: 'Login',
+    component: Login,
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: Dashboard,
+  },
+];
+
+const router = new VueRouter({
+  routes
+});
+\end{lstlisting}
+
+In unserem Frontend gibt es genau zwei Routen:
+\begin{description}
+    \item[Login] Die Login-Route ist die Hauptroute und wird daher beim Besuch des Frontends als erstes aufgerufen. Sie dient vor allem dazu den Benutzer zu authentifizieren bevor er in das Dashboard darf.
+    
+    \item[Dashboard] Sobald der Benutzer authentifiziert ist wird er zum Dashboard weitergeleitet. In diesem kann der Benutzer Einstellungen an den Batch Jobs und dem Scheduling vornehmen. Versucht ein Benutzer ohne gültige Authentifizierung ins Dashboard zu gelangen wird dieser automatisch auf die Login-Route weitergeleitet.
+\end{description}
+
+\subsection{Services}
+Um mit APIs zu kommunizieren werden Services angelegt. Diese dienen als Clients für die korrespondierende API. Als Grundlage für die Requests wird Axios verwendet. Es gibt für Authentifizierung, Jobs, Scheduler und Batch Job Settings entsprechende Services. In diesem Abschnitt werden wir uns nur den für Batch Job Settings anschauen, weil der Aufbau für alle anderen weitestgehend gleich bleibt. Authentifizierung ist ein Spezialfall der im nächsten Abschnitt behandelt wird.
+
+\begin{lstlisting}[language=JavaScript,caption=src/services/BatchSettingsService.js][H]
+import api from './Api';
+
+/**
+ * BatchJob.
+ * @typedef {class} BatchJob
+ * @property {string} description - .
+ * @property {boolean} enabled - .
+ * @property {string} jobClass - .
+ * @property {string} jobGroup - .
+ * @property {string} jobName - .
+ */
+export class BatchJob {
+  constructor(description, enabled = true, jobClass, jobGroup, jobName) {
+    this.description = description;
+    this.enabled = enabled;
+    this.jobClass = jobClass;
+    this.jobGroup = jobGroup;
+    this.jobName = jobName;
+  }
+}
+
+class BatchSettingsService {
+  constructor(apiImpl) {
+    this.baseEndpoint = '/settings';
+    this.endpoints = {
+      batchJobs: this.baseEndpoint + '/batch-jobs',
+      getBatchJobByIdentity: (jobGroup, jobName) => this.endpoints.batchJobs + `/jobgroup/${jobGroup}/jobname/${jobName}`
+    };
+    this.api = apiImpl || api;
+  }
+
+  /**
+   * @returns {Promise<*>}
+   */
+  async getSettings() {
+    const response = await this.api.get(this.baseEndpoint);
+    return response.data;
+  }
+
+  /**
+   *
+   * @returns {Promise<Array<*>>}
+   */
+  async getBatchJobs() {
+    const response = await this.api.get(this.endpoints.batchJobs);
+    return response.data.batchJobSettingList;
+  }
+
+  /**
+   *
+   * @param {BatchJob} batchJob
+   * @returns {Promise<AxiosResponse<T>>}
+   */
+  async addBatchJobs(batchJob) {
+    return await this.api.post(this.endpoints.batchJobs, batchJob);
+  }
+
+  /**
+   *
+   * @param {BatchJob} batchJob
+   * @returns {Promise<AxiosResponse<T>>}
+   */
+  async deleteBatchJob(batchJob) {
+    return await this.api.delete(this.endpoints.getBatchJobByIdentity(batchJob.jobGroup, batchJob.jobName));
+  }
+}
+
+export default new BatchSettingsService();
+\end{lstlisting}
+
+Die $BatchJob$-Klasse dient als Typdefinition für den Payload der API. Der Konstruktor der $BatchSettingsService$-Klasse erstellt den API-Client und alle relevanten Endpunkte der API. Die einzelnen Methoden der Klasse nutzen diesen API-Client und Endpunkt-Definitionen um die HTTP Requests auszuführen. Darüber hinaus sollte beachtet werden, dass Netzverkehr asynchron stattfindet, weswegen wir async/await benutzen, und dass die Parameter für die Requests über
+die Methodeköpfe übergeben werden. Zuletzt geben wir einen Singleton der Klasse zurück.
+
+Das Code-Listing enthält jeweils Methoden für das Abrufen der allgemeinen Settings (Zeile 35) als auch der Batch Job Settings (Zeile 44). Ferner können Batch Job Settings neu hinzugefügt (Zeile 54) oder über die Angabe von jobGroup und jobName gelöscht werden (Zeile 63).
+
+\subsection{Authentifizierung}
+Bevor es dem Benutzer gestattet ist Veränderungen an den Batch Job Settings oder dem Scheduling vorzunehmen muss sich dieser authentifizieren. Zunächst gibt er dazu Username und Password an. Das nachfolgende Listing zeigt wie das im AuthService bewerkstelligt wird. Sobald die Zugangsdaten an den entsprechenden Endpunkt versandt ist und eine Antwort verfübar ist, wird geprüft ob der Json Web Token enthalten ist. Dieser wird dann über einen Axios Request Interceptor an alle Request Headers als Bearer Token hinterlegt.
+
+\begin{lstlisting}[language=JavaScript,caption=Ausschnitt aus src/services/AuthService.js][H]
+  async authenticate(authenticationObject) {
+    const response = await this.api.post(
+      this.baseEndpoint,
+      authenticationObject
+    );
+    this.jwt = response.data;
+    api.interceptors.request.use(
+      axiosRequestConfig => {
+        axiosRequestConfig.headers.Authorization = `Bearer ${this.jwt.token}`;
+        return axiosRequestConfig;
+      },
+      error => {
+        throw error;
+      }
+    );
+    return this.jwt;
+  }
+\end{lstlisting}
+
+In der Login-Komponente selbst kann man in Zeile 4 erkennen, dass der AuthService aufgerufen wird sobald auf dem Absende-Button geklickt wird. Sind die Zugangsdaten valide erhält man den Token zurück und wird zum Dashboard weitergeleitet.
+
+\begin{lstlisting}[language=JavaScript,caption=Ausschnitt aus src/views/Login.vue][H]
+  methods: {
+    async onSubmit(event) {
+      event.preventDefault();
+      const response = await AuthService.authenticate({
+        username: this.username,
+        password: this.password
+      });
+      if (response && response.token) {
+        this.$router.push('/dashboard');
+      }
+    }
+  }
+\end{lstlisting}
+
+\input{content/0x_Development/03_API_Anbindung}
+
+%\namedsection{Authentifizierung}{M}
+
+%\namedsection{ORM}{}
+
+\namedsection{Batch Jobs}{J}
+Da bereits im Abschnitt zum Batch Job bereits ausführlich dargelegt wurde wie der Ablauf für das Einspeisen der Daten in die Datenbank funktioniert, konzentrieren wir uns hier auf die konkrete Implementierung von Batch Jobs. Stellvertretend für alle anderen Entitäten wird nur die Implementierung des Batch Jobs für Produkte gezeigt. Alle anderen sind diesem Vorgehen ähnlich.
+
+\subsection{Batch Job Config}
+\begin{lstlisting}[language=JAVA,caption=ProductBatchConfig.java][H]
+@Configuration
+@EnableBatchProcessing
+@EnableScheduling
+@RequiredArgsConstructor
+@Slf4j
+public class ProductBatchConfig {
+
+    private final JobBuilderFactory jobBuilderFactory;
+
+    private final StepBuilderFactory stepBuilderFactory;
+
+    private final SqlSessionFactory sqlSessionFactory;
+
+    private final ProductMapper productMapper;
+
+    private final JobExecutionListener listener;
+
+
+    @Bean
+    public MyBatisCursorItemReader<KHKArtikel> khkArtikelReader() {
+        return new MyBatisCursorItemReaderBuilder<KHKArtikel>()
+                .sqlSessionFactory(sqlSessionFactory)
+                .queryId("com.pasws.sageconnector.mapper.KHKArtikelMapper.findAllKHKArtikel")
+                .build();
+    }
+
+    @Bean
+    public Job readProductsBatchJob(MongoTemplate mongoTemplate) {
+        return jobBuilderFactory
+                .get("readProductsBatchJob")
+                .incrementer(new RunIdIncrementer())
+                .listener(listener)
+                .flow(readProductsStep(mongoTemplate))
+                .end()
+                .build();
+    }
+
+    @Bean
+    public Step readProductsStep(MongoTemplate mongoTemplate) {
+        return stepBuilderFactory
+                .get("readProductsStep")
+                .<KHKArtikel, Product>chunk(10)
+                .reader(khkArtikelReader())
+                .processor(khkArtikelProcessor())
+                .writer(productWriter(mongoTemplate))
+                .build();
+    }
+
+    @Bean
+    public KHKArtikelProcessor khkArtikelProcessor() {
+        return new KHKArtikelProcessor(productMapper);
+    }
+
+    @Bean
+    public MongoItemWriter<Product> productWriter(MongoTemplate mongoTemplate) {
+        final MongoItemWriter<Product> writer = new MongoItemWriter<>();
+
+        try {
+            writer.setTemplate(mongoTemplate);
+        } catch (Exception e) {
+            log.error("ProductWriter has failed to execute persistence tasks to MongodB!", e);
+        }
+
+        writer.setCollection("Product");
+
+        return writer;
+    }
+
+    @Bean
+    public JobDetailFactoryBean readProductsJobDetail(){
+        JobDetailFactoryBean jobDetailFactory = new JobDetailFactoryBean();
+        jobDetailFactory.setJobClass(ReadProductsJob.class);
+        jobDetailFactory.setDescription("Invoke ReadProducts Job...");
+        jobDetailFactory.setDurability(true);
+        return jobDetailFactory;
+    }
+
+    @Bean
+    public SimpleTriggerFactoryBean readProductsTrigger(@Qualifier("readProductsJobDetail") JobDetail job){
+        SimpleTriggerFactoryBean trigger = new SimpleTriggerFactoryBean();
+        trigger.setJobDetail(job);
+        trigger.setRepeatInterval(3600000);
+        trigger.setRepeatCount(SimpleTrigger.REPEAT_INDEFINITELY);
+        return trigger;
+    }
+
+
+}
+\end{lstlisting}
+
+\subsection{Job}
+\begin{lstlisting}[language=JAVA,caption=ReadProductsJob.java][H]
+@PersistJobDataAfterExecution
+@DisallowConcurrentExecution
+@Slf4j
+@NoArgsConstructor
+@Component
+public class ReadProductsJob extends QuartzJobBean {
+
+
+    private ReadProductsJobLauncher readProductsJobLauncher;
+
+    @Autowired
+    public void setReadProductsJobLauncher(ReadProductsJobLauncher readProductsJobLauncher) {
+        this.readProductsJobLauncher = readProductsJobLauncher;
+    }
+
+    @Override
+    protected void executeInternal(JobExecutionContext context) {
+        log.info("Executing ReadProductsJob..... ");
+
+        JobDataMap jobDataMap = context.getMergedJobDataMap();
+
+        String message = jobDataMap.getString("message");
+        log.debug("The following message was provided for the job:  " + message);
+
+        try {
+            readProductsJobLauncher.launchReadProductsJob();
+        } catch (JobParametersInvalidException | JobExecutionAlreadyRunningException | JobRestartException | JobInstanceAlreadyCompleteException e) {
+            log.error("The ReadProductsJob has failed: ", e);
+        }
+
+
+    }
+}
+\end{lstlisting}
+
+\subsection{Item Processor}
+\begin{lstlisting}[language=JAVA,caption=KHKArtikelProcessor.java][H]
+@Slf4j
+@RequiredArgsConstructor
+public class KHKArtikelProcessor implements ItemProcessor<KHKArtikel, Product> {
+
+    private final ProductMapper productMapper;
+
+    @Override
+    public Product process(KHKArtikel item) throws Exception {
+        return productMapper.khkArtikelToProduct(item);
+    }
+}
+\end{lstlisting}
+
+\subsection{Job Launcher}
+\begin{lstlisting}[language=JAVA,caption=ReadProductsJobLauncher.java][H]
+@Component
+@Slf4j
+public class ReadProductsJobLauncher {
+
+    private AtomicBoolean enabled = new AtomicBoolean(true);
+
+    private AtomicInteger batchRunCounter = new AtomicInteger(0);
+
+    private final Job job;
+
+    private final JobLauncher jobLauncher;
+
+    public ReadProductsJobLauncher(@Qualifier("readProductsBatchJob") Job job, JobLauncher jobLauncher) {
+        this.job = job;
+        this.jobLauncher = jobLauncher;
+    }
+
+    public void launchReadProductsJob() throws JobParametersInvalidException, JobExecutionAlreadyRunningException, JobRestartException, JobInstanceAlreadyCompleteException {
+        log.info("Scheduling launchReadProductsJob...");
+        if (enabled.get()) {
+            log.info("Starting ReadArticle job");
+
+            jobLauncher.run(job, newExecution());
+
+            batchRunCounter.incrementAndGet();
+
+            log.info("Stopping ReadArticle job");
+        }
+    }
+
+    private JobParameters newExecution() {
+        Map<String, JobParameter> parameters = new HashMap<>();
+
+        JobParameter parameter = new JobParameter(new Date());
+        parameters.put("currentTime", parameter);
+
+        return new JobParameters(parameters);
+    }
+}
+\end{lstlisting}
+
+\namedsection{Security}{M}
+Zum Schutz des Systems vor unbefugtem Datenzugriff haben wir einen Mechanismus auf der Basis von JSON Web Token verwendet, den wir in den Gateway-API-Dienst implementiert haben. Für die Implementierung haben wir ein Paket verwendet, das zum Java Spring Spring-Boot-Starter-Security-Projekt gehört, sowie das io.jsonwebtoken-Paket. \\ \\
+Wir haben es in vier Klassen implementiert:
+\begin{itemize}
+	\item JwtAuthenticationEntryPoint
+	\item JwtRequestFilter
+	\item JwtTokenUtil
+	\item SecurityConfig
+\end{itemize}
+
+\subsection{Security Config}
+Die Klasse Security Config implementiert die WebSecurityConfigurerAdapter Schnittstelle. Sie umfasst Konfigurationen für das gesamte Sicherheitssystem.
+In der \textit{configure} Methode haben wir festgelegt, welche Endpunkte ohne Authorization verfügbar sein sollen. Dies sind Pfade zu CSS-Dateien, Javascript-Dateien und der \textit{actuator/health}, den der Konsul verwendet, um zu prüfen, ob der Dienst funktioniert, sowie der POST-Anforderungspfad mit den Anmeldedaten in JSON-Notation. Bei dieser Methode haben wir den CORS-Mechanismus aktiviert und die Möglichkeit, das System mit der CSRF-Methode anzugreifen, deaktiviert.
+
+\begin{lstlisting}[language=JAVA,caption=SecurityConfig.java][H]
+@Override
+protected void configure(HttpSecurity httpSecurity) throws Exception {
+    // We don't need CSRF for this example
+    httpSecurity.cors().and().csrf().disable()
+            // dont authenticate this particular request
+            .authorizeRequests().antMatchers("/").permitAll().and()
+            .authorizeRequests().antMatchers("/authenticate").permitAll().and()
+            .authorizeRequests().antMatchers("/actuator/health").permitAll().and()
+            .authorizeRequests().antMatchers("/js/**").permitAll().and()
+            .authorizeRequests().antMatchers("/css/**").permitAll().and()
+            .authorizeRequests().antMatchers("/favicon.ico").permitAll().
+            // all other requests need to be authenticated
+                    anyRequest().authenticated().and().
+            // make sure we use stateless session; session won't be used to
+            // store user's state.
+                    exceptionHandling().authenticationEntryPoint(jwtAuthenticationEntryPoint).and().sessionManagement()
+            .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+
+    // Add a filter to validate the tokens with every request
+    httpSecurity.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+}
+\end{lstlisting}
+
+\textbf{CORS} - Cross-Origin Resource Sharing ist ein Mechanismus, der zusätzliche HTTP-Header verwendet, um Browsern mitzuteilen, dass sie einer Webanwendung, die an einem Ursprung läuft, Zugriff auf ausgewählte Ressourcen von einem anderen Ursprung gewähren sollen. Eine Webanwendung führt eine HTTP-Anforderung aus, wenn sie eine Ressource anfordert, die einen anderen Ursprung (Domäne, Protokoll oder Port) als ihren eigenen hat.
+\\ \\
+\textbf{CSRF} - Cross-site request forgery ist eine Methode zum Angriff auf eine Website, die darin besteht, eine Anfrage zu erstellen, indem die Privilegien des Opfers - hauptsächlich Sitzungen - genutzt werden, um eine schädliche und unbeabsichtigte Operation des Opfers durchzuführen.
+
+\subsection{JwtTokenUtil}
+Die Klasse JwtTokenUtil enthält eine Methode zur Unterstützung von Autorisierungsprozessen, wie z.B. die Erzeugung eines Tokens, die Validierung von Token oder die Entschlüsselung eines Benutzernamens aus einem Token.
+\begin{lstlisting}[language=JAVA,caption=JwtTokenUtil.java][H]
+@Component
+public class JwtTokenUtil implements Serializable {
+
+    private static final long serialVersionUID = -2550185165626007488L;
+
+    @Value("${jwt.token-validity}")
+    public long tokenValidity;
+    
+    private String secret = Encoders.BASE64.encode(Keys.secretKeyFor(SignatureAlgorithm.HS512).getEncoded());
+
+    public String getUsernameFromToken(String token) {
+        return getClaimFromToken(token, Claims::getSubject);
+    }
+
+    public Date getIssuedAtDateFromToken(String token) {
+        return getClaimFromToken(token, Claims::getIssuedAt);
+    }
+
+    public Date getExpirationDateFromToken(String token) {
+        return getClaimFromToken(token, Claims::getExpiration);
+    }
+
+    public <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = getAllClaimsFromToken(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims getAllClaimsFromToken(String token) {
+        return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        final Date expiration = getExpirationDateFromToken(token);
+        return expiration.before(new Date());
+    }
+
+    private Boolean ignoreTokenExpiration(String token) {
+        // here you specify tokens, for that the expiration is ignored
+        return false;
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        return doGenerateToken(claims, userDetails.getUsername());
+    }
+
+    private String doGenerateToken(Map<String, Object> claims, String subject) {
+
+        return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + tokenValidity * 1000)).signWith(SignatureAlgorithm.HS512, secret).compact();
+    }
+
+    public Boolean canTokenBeRefreshed(String token) {
+        return (!isTokenExpired(token) || ignoreTokenExpiration(token));
+    }
+
+    public Boolean validateToken(String token, UserDetails userDetails) {
+        final String username = getUsernameFromToken(token);
+        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    }
+}
+\end{lstlisting}
+
+\subsection{JwtRequestFilter}
+Die Klasse JwtRequestFilter erwietet eine abstracte Klasse OncePerRequestFilter und ist dafür verantwortlich, an das System gesendete Anfragen zu filtern und diejenigen auszuführen, an die das richtige Token angehängt ist, um den Zugriff auf die Daten zu ermöglichen. Zu diesem Zweck prüft die Methode doFilterInternal zunächst, ob die Abfrage den Autorisierungs-Header enthält. Wenn die Abfrage einen solchen Header enthält, wird das Token mit Hilfsfunktionen aus der Klasse JwtTokenUtil dekodiert. Es prüft dann, ob der Benutzername, den Sie erhalten, im System existiert.
+\begin{lstlisting}[language=JAVA,caption=JwtRequestFilter.java][H]
+@Override
+protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+    final String requestTokenHeader = request.getHeader("Authorization");
+
+    String username = null;
+    String jwtToken = null;
+    // JWT Token is in the form "Bearer token". Remove Bearer word and get only the Token
+    if (requestTokenHeader != null && requestTokenHeader.startsWith("Bearer ")) {
+        jwtToken = requestTokenHeader.substring(7);
+        try {
+            username = jwtTokenUtil.getUsernameFromToken(jwtToken);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Unable to get JWT Token");
+        } catch (ExpiredJwtException e) {
+            System.out.println("JWT Token has expired");
+        }
+    } else {
+        logger.warn("JWT Token does not begin with Bearer String");
+    }
+    //Once we get the token validate it.
+    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        UserDetails userDetails = this.jwtUserDetailsService.loadUserByUsername(username);
+
+        // if token is valid configure Spring Security to manually set authentication
+        if (jwtTokenUtil.validateToken(jwtToken, userDetails)) {
+
+            UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
+                    userDetails, null, userDetails.getAuthorities());
+            usernamePasswordAuthenticationToken
+                    .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            // After setting the Authentication in the context, we specify
+            // that the current user is authenticated. So it passes the Spring Security Configurations successfully.
+            SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+        }
+    }
+    chain.doFilter(request, response);
+}
+\end{lstlisting}
+
+\subsection{JwtAuthenticationEntryPoint}
+Die Klasse JwtAuthenticationEntryPoint implementiert die AuthenticationEntryPoint-Schnittstelle mit einer Methode - \textit{commence}. Diese Methode definiert, welche Nachricht im System gesendet werden soll, wenn die Autorisierung fehlschlägt.
+\begin{lstlisting}[language=JAVA,caption=JwtAuthenticationEntryPoint.java][H]
+@Override
+public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException {
+    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+}
+\end{lstlisting}
+ \newpage
+\namedsection{Config Management}{J.}
+
+Wie bereits in \ref{configmgmt} beschrieben haben wir uns entschieden die Konfigurationen einzelner Services über den Consul eigenen Key-Value Store zu implementieren. \\
+Hiermit kommen wir auch unserer nicht funktionialen Anforderung des Konfigurations-Managements (siehe (\ref{configmgmt}) nach.
+
+Wir verwenden hierbei das Paket $spring-cloud-starter-config$ um unseren registrierten Services das verwenden zentraler Konfigurationsdateien zu ermöglichen.
+
+\begin{lstlisting}[language=JAVA,caption=APIGatewayApplication.java][H]
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
+import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@SpringBootApplication
+@EnableZuulProxy
+@EnableDiscoveryClient
+public class APIGatewayApplication {
+	public static void main(String[] args) {
+		SpringApplication.run(APIGatewayApplication.class, args);
+	}
+}
+\end{lstlisting}
+
+Die Konfigurationsdateien, können somit zentral über das von Consul bereitgestellte Interface, wie auch direkt über die Consul API gemanaged werden. In unserer Implementierung verwendet jeder Service eine eigene .YAML-Datei. Jeder Service kann auf seine gleichnamige .YAML Datei zugreifen und aus dieser seine jeweiligen Konfigurationen ziehen. Dies geschieht direkt bei der Initialisierung und Registrierung der einzelnen Services bei Consul (siehe Abb. \ref{fig:service_registration_consul}).
+
+Eine mögliche Service-Konfigurations Datei kann z.B wie folgt aussehen:
+
+
+\begin{lstlisting}[caption= Auszug aus einer YAML Konfigurationsdatei]
+jwt:
+  username: user1
+  password: secure_password
+  token-validity: 18000000 # 5 hours
+  secret: secret
+
+server:
+  port: 15000
+
+zuul:
+  routes:
+    sage-connector:
+      path: /api/v1/**
+      url: http://localhost:8080/api/v1
+\end{lstlisting}
+
+\namedsection{API-Gateway}{J}
+
+Wie in Abb. \ref{fig:Architektur des Gesamtsystems} beschrieben laufen alle Anfragen über einen zentralen Endpunkt, den API Gateway, welcher alle Anfragen an die entsprechenden Services weiterleitet. 
+
+In diesem haben wir einen sogenannten Reverse-Proxy installiert über welchen jeder registrierte Service über das API-Gateway angesprochen werden kann. Dies geschieht durch ein Prefixing, also ein voranstellen des entsprechenden Zielservice-Namen vor die eigentlich angefragt URL.
+
+\begin{description}
+    \item [/testservice/gewünschte/route] wird also beispielsweise an den Service testservice mit dem Pfad /gewünschte/route weitergeleitet, falls dieser sich zuvor registriert hat. 
+\end{description}
+
+Die Service Registrierung ist mittels der Annotation $@EnableDiscoveryClient$ implementiert, welche wie in Abb. \ref{fig:service_registration_consul} beschrieben zu einer Registrierung und einem Monitoring durch Consul führt.
+
+Jede Schnittstellenanfrge an den API Gateway wird somit daraufhin überprüft ob sie für für einen registrierten Service gestellt wurde und wird in diesem Fall an den jeweiligen Service weitergeleitet.
+
+Hiermit lassen sich im Falle mehrerer Quellsysteme bei einem einzelnen Kunden auch verschiedene Datenquellen und Konnektoren zentral über den API Gateway ansprechen.
+
+Für die Implementation dieses Reverse Proxys haben wir das von Netflix entwickelte Paket $spring-cloud-starter-netflix-zuul$ und deren zugehörigen Annotation $@EnableZuulProxy$ verwendet, welche wir in der main-Klasse unseres API Gateway eingebunden haben.
+

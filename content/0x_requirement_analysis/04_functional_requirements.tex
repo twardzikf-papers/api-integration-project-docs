@@ -1,0 +1,33 @@
+\namedsection{Funktionale Anforderungen}{Filip}
+
+Die Ausgangsanforderungen die von Statistance gestellt wurden, haben die initiale grobe Rahmen für das geplante System bestimmt, die durch Recherche und Feedback weiter verfeinert wurden. Eine genauere Betrachtung der Drittsysteme mit denen das zu entwickelnde Lösung interagieren sollte als auch die Analyse des Datenmodells, das in der eigenen Anwendung von Statistance verwendet wird, hat weitere Bedingungen beigebracht. Aus der Zusammenführung der gewünschten Funktionalitäten, ihrer Priorität und der identifizierten Bedingungen und Einschränkungen ergeben sich die unten definierte und beschriebene funktionale Anforderungen an die Ziellösung.
+
+\namedsubsection{Ablesen der angeforderten Daten aus den Ausgangssystemen}{Filip}
+Die Lösung soll über den Zugriff auf die Daten vom dem aktuellen Pilotkunde von Statistance verfügen. Es kann ein indirekter Zugriff über das vom Kunde bereits verwendete ERP System Sage 100 sein, kann aber auch direkt über die Datenbank folgen.
+Teil der initialen Anforderungen ist auch die Fähigkeit gewesen, die Daten nach der Bearbeitung in der eigener Anwendung durch Statistance in das Ausgangssystem zurückzuspielen. Während der Anforderungsanalyse hat, sich aber ergibt, dass die Version des von Pilotkunde benutzen Software keine solche Funktionalität bietet. Die alternative direkte Verbindung mit dem Datenbank... . Deshalb wurde hier nach der Besprechung mit Statistance entschlossen, nur eine Richtung des Datenflusses in Anforderungen zu betrachten.
+
+\namedsubsection{Umwandlung der Daten in das Zieldomänenmodell}{Filip}
+Obwohl die Ursprungsdaten erst nur aus einem Ausgangssystem kommen, muss man davon ausgehen, dass sich die Anzahl der eingebundenen Datenquellen vergrößern wird und somit weitere unterschiedliche Datenmodelle infrage kommen. Außerdem sind die Modelle in ERP Systemen, die bei Statistance Kunden verwendet sind, zu anderen Zwecken gedacht und zu den Anwendungen in der eigener Statistance Applikation nicht passend. Deshalb soll die Lösung über ein einheitliches Datenmodell verfügen, auf den alle abgelesene Daten unabhängig von der Quelle gebracht werden können.
+
+\namedsubsection{Persistente Speicherung der Daten}{Filip}
+Als eine der Ziele wurde von Statistance Unabhängigkeit der zu entwickelnden Lösung von ihren eigenen Anwendung erwähnt. Daraus abgeleitet ergibt sich Bedarf auf Verwendung eines eigenen Datenbank und Speicherung aller Daten, damit die Lösung unabhängig von der Verfügbarkeit des Ausgangssystems als auch Statistance eigener Applikation die Daten immer bereitstellt.
+
+\namedsubsection{Bereitstellung der Daten ueber eine API}{Filip}
+Die Lösung soll die angeforderten Daten im Zieldatenmodell über eine REST Schnittstelle bereitstellen, mit der die Applikation von Statistance direkt kommunizieren kann.
+
+\namedsubsection{Aktualität der Daten}{J}
+Die für Statistance relevanten Daten ändern sich je nach Domäne unterschiedlich häufig. So ändern sich Lieferantenstammdaten teilweise über Jahre nicht, Wareneingänge und Bestellungen jedoch täglich.
+Entsprechend haben wir gemeinsam mit Statistance einen Turnus für alle jeweiligen Domänen festgelegt um alle berechnungsrelevanten Daten in ausreichender Aktualität vorliegen zu haben. Diese sind wie folgt: 
+\\\newline
+\begin{tabular}{ c c  }
+\hline
+ Domäne & Turnus für Abfrage\\
+ \hline
+ Produkte & täglich  \\ 
+ Lieferanten & wöchentlich  \\  
+ Bestellungen & täglich  \\
+ Lieferungen &  wöchentlich \\
+ Mitarbeiter & täglich 
+\end{tabular}
+\\
+\newline Die tägliche, beziehungsweise wöchentliche Aktualität der Daten ist somit eine weiter funktionale Anforderung.

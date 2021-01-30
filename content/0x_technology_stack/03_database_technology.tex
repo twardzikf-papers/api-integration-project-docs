@@ -1,0 +1,36 @@
+\namedsection{Datenbanktechnologien}{Filip}
+Persistente Speicherung der Daten ist ein der zentralen Elementen jeder Softwareanwendung. Verschiedene Technologien legen Fokus auf unterschiedliche Aspekte der Speicherung, Abruf und Anfragen. Die dadurch resultierende Trade-offs erzwingen eine genauere Analyse der unterschiedlichen Ansätze um die optimale Technologie für den Use-Case zu wählen.
+
+\subsection{Evaluierungskriterien}
+Im Folgenden werden Bewertungskriterien definiert und erläutert, anhand derer die beiden Datenbankarchitekturen verglichen und bewertet werden. Nach der Evaluierung wird diejenige Technologie ausgewählt, die den Projektzielen am besten entspricht.
+
+\begin{description}
+    \item [Schema]
+    Wie sieht die Struktur für die  Datensätze aus? Welche Eigenschaften hat sie? Wie flexible ist sie?
+    \item [Format]
+    In welchem Format sind die Daten gespeichert? Sind unterschiedliche Formate erlaubt? Wie werden die Relationen/Abhängigkeiten zwischen Datensätze abgebildet?
+    \item [Querying]
+    Wie komplex können die Anfragen an Datenbank sein? Wie effizient werden sie verarbeitet?
+    \item [BASE Compliance]
+    Folgt die Datenbank die ACID (Atomicity, Consistency, Integrity, Durability)oder eher BASE (Basic Availability, Soft state, Eventual consistency) Prinzipien?
+\end{description}
+\subsection{Betrachtete Datenbanktechnologien}
+\subsection*{\textbf{Relationale Datenbanken (RDBMS)}}
+Relationale Datenbanken basieren auf einem feststehenden Schema in Form von einer relationalen Tabelle. Als die Spalten den Attributen entsprechen, ist jede Zeile ein Datensatz, jedes optionale Attribut ist also auch in dem Datensatz enthalten. Die Abhängigkeiten zwischen Daten können durch 1:1, 1:m und n:m Relationen zwischen Tabellen realisiert werden. 
+
+Das einheitliche Schema und tabellenbasierte Organisierung der Daten ermöglicht effiziente und komplexe Anfragen über Daten aus mehreren Tabellen mit ausgebauten Kriterien und Bedingungen. Sowohl die Anfragen an die Daten als auch Definitionen der Tabellen, Attributen und Relationen sind in SQL geschrieben.
+
+Relationale Datenbanken folgen die ACID Prinzipien. Eine Reihe von Operationen ist ACID konform, wenn die als eine Einheit betrachtet werden kann (Atomicity), nach der Ausführung die Datenbank in einen validen Zustand bringt (Consistency), gleichzeitig mit anderen solchen Einheiten bearbeitet werden kann (Isolation) und wenn ausgeführt und abgeschlossen dauerhaft wirkt unabhängig von eventuellen Systemausfälle.
+
+\subsection*{\textbf{Nicht-relationale Datenbanken (Non-RDBMS)}}
+Nicht-relationale Datenbanken haben im Gegensatz zu RDBMS kein festes Schema und verzichten auf das rigide tabellenbasierte Organisierung der Datensätze. Stattdessen werden die Einträge in Form von Objekte, Dokumente, Schlüssel-Wert Paare oder auch Graphen gespeichert. Die Daten innerhalb einer Sammlung können unterschiedliche Attribute und Struktur haben. 
+
+So großer Freiheitsgrad bei der Struktur und Format wirkt aber negativ die Möglichkeiten, an das System Anfragen zu stellen. Die konkrete Funktionalität hängt von der konkreter Art und Implementierung der Datenbank, ist aber im Allgemeinen weniger mächtig.
+
+Nicht-relationale Datenbanken folgen im Allgemeinen die BASE Prinzipien. Hier sind die Regeln weniger strikt als bei ACID mit dem Ziel, unter anderem bessere Skalierbarkeit und
+Elastizität zu erreichen. Somit garantiert die Base Availability, dass die Datenbank die meiste Zeit verfügbar ist. Soft state bedeutet, dass die verschiedene Kopien der Daten nicht immer alle gleichzeitig konsistent sein müssen. Letztlich sorgt Eventual Consistency dafür, dass die Änderungen in endlicher Zeit an alle Kopien angewendet werden und somit alle Kopien den konsistenten Zustand erreichen.
+
+\subsection{Auswertung und Diskussion}
+Das umzusetzende Projekt hat unter anderem Anpassbarkeit und Erweiterbarkeit als wichtige Anforderungen, die besser von den nicht relationalen Datenbanken erfüllt sind. Non-RDBMS skalieren besser mit dem wachsenden Dataset. Sie sind auch besser geeignet für Cloud-Speicher und rapide, agile Entwicklung, wo sich die Details der Struktur bzw. des Formats der Daten öfter ändern können. Weiterhin sind für den zu entwickelnden Use-Case die komplexen Abfragemöglichkeiten nicht relevant, da die Daten vorher bereits transformiert worden sind. Auch hohe Verfügbarkeit über die Zeit ist viel wichtiger als die von ACID garantierte absolute Konsistenz. Somit stellt sich eine nicht relationale Art der Datenbank als die am besten geeignete Datenbanktechnologie fest.
+
+Ein weiterer Punkt, der Diskussion noch vorliegt, ist die konkrete Art des Non-RDBMS. Man hat hier Auswahl zwischen vielen verschiedenen Varianten, wobei Schlüssel-Wert basierte, Graphenbasierte und Dokumentenbasierte die drei meist etabliert sind. Eine Schlüssel-Wert basierte Datenbank bietet sehr schnelle Lese- und Schreiboperationen an, die Struktur und Eigenschaften der Werte sind jedoch unübersichtlich. Der graphenbasierter Ansatz ist nur bei starker Vernetzung der Daten vorteilhaft und fokussiert mehr auf der Relationen zwischen Datensätzen als auf den Datensätzen selbst. Die dokumentenbasierte Variante ist Erweiterung des Schlüssel-Wert-Models auf strukturiertes Format. Es ermöglicht verschiedene Formate innerhalb einer Sammlung und eignet sich am besten für die Arbeit mit großen Datenmengen deren Struktur nicht unbedingt gleich bleibt.

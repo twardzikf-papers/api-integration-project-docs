@@ -1,0 +1,209 @@
+\namedsection{API}{K}
+In den nachfolgenden Abschnitten werden sowohl die Umsetzung des in Kapitel \ref{subsubsec:RestAPI} beschriebenen Designs für die API als auch die konkreten Endpoints dargestellt und beschrieben.
+
+\subsection{Umsetzung des API Designs}
+Im Folgenden wird anhand der Entität \textit{Delivery} die Umsetzung des API-Designs erläutert und dargestellt. Entsprechende Klassen existieren für alle sechs Entitäten. Ebenso wurden die gleichen Komponenten für den Scheduler, die Batch-Jobs und das Batch-Job-Setting implementiert.
+Als Beispiel der in Kapitel \ref{subsubsec:RestAPI} beschriebenen Controller-Klassen ist nachfolgend der Delivery-Controller dargestellt. Die erste Methode \textit{getDeliveries()} liefert alle Lieferungen. Die zweite Methode \textit{getDeliveriesById()} verlangt, dass beim HTTP-Request die id einer konkreten Lieferung mitgegeben wird, um die entsprechende Lieferung zu erhalten. Die Annotationen \textit{@RequestMapping} beziehungsweise \textit{@GetMapping} mappen die eingehenden HTTP-Get-Requests auf die dafür vorgesehenen Methoden, welche den entsprechenden Response zurückliefern. Die Annotation \textit{@RequestMapping("\/api/v1/deliveries")}, die in der Klasse selbst definiert ist, bildet den Request-Pfad auf einen Controller ab. An jedes Request an einen REST Endpoint wird \textit{"\/api/v1/deliveries"} angehangen. Die Annotation \textit{@GetMapping("\/{deliveryId}")} stellt einen GET-Service zur Verfügung  \textit{("\/api/v1/deliveries/{deliveryId}")}, welcher eine konkrete Lieferung mit einer eindeutigen id zurück gibt. Hierbei wird sowohl der Status-Code als auch der Body mit den entsprechenden Daten zurückgeliefert. Die Annotationen \textit{@ApiOperation()} und \textit{@ApiParam()} werden für die Dokumentation mit Swagger benötigt. Hierdurch können sowohl die Methode als auch die notwendigen Parameter beschrieben werden. Bei den Parametern kann zusätzlich durch das setzen von \textit{required} auf \textit{true} beziehungsweise \textit{false} angegeben werden, ob die einzelnen Parameter optional oder zwingend notwendig sind. \newpage
+\begin{lstlisting}[language=JAVA,caption= {Delivery Controller}]
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/deliveries")
+public class DeliveryController {
+
+    private final DeliveryService deliveryService;
+
+    @GetMapping
+    @ApiOperation(value="Returns all deliveries")
+    public ResponseEntity<DeliveryGetResponse> getDeliveries() {
+        return ResponseEntity.ok(DeliveryGetResponse.builder().deliveries(deliveryService.getDeliveries()).build());
+    }
+
+    @GetMapping("/{deliveryId}")
+    @ApiOperation(value="Returns delevery with specified id")
+    public ResponseEntity<Delivery> getDeliveryById(
+    		@ApiParam(value="ID of a specific delivery", required=true)@PathVariable String deliveryId) {
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(deliveryService.getDeliveryById(deliveryId));
+    }
+    
+}
+\end{lstlisting}
+Für die sechs Entitäten sind lediglich GET-Requests möglich, beim Scheduler sind beispielsweise auch PUT-, POST- und DELETE-Requests möglich, da beispielsweise Job-Trigger durch den Nutzer mittels PUT-Request \textit{"\/api/v1/scheduler/job-schedule/{id}"} ersetzt, Jobs mit entsprechenden Settings durch POST-Request \textit{""\/api/v1/scheduler/job-schedule"} geplant oder entsprechende Trigger eines Batch-Jobs mittels DELETE- Request \textit{"\/api/v1/scheduler/job/unschedule/{jobGroup}/{jobName}"} gelöscht werden können. Aus diesem Grund ist der Scheduler-Controller weitaus umfangreicher, wie nachfolgend in einem Auszug zu erkennen ist. 
+
+\begin{lstlisting}[language=JAVA,caption= Scheduler Controller][T]
+@RestController
+@RequestMapping("/api/v1/scheduler")
+@Slf4j
+@RequiredArgsConstructor
+public class SchedulerController {
+
+    private final SchedulerFactoryBean schedulerFactoryBean = null;
+
+    private final SchedulerService schedulerService;
+
+
+    @PostMapping(path = "/job-schedule", consumes= MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(value = HttpStatus.OK)
+    @ApiOperation(value="Schedule a new job with the corresponding batch job settings specified by job group and job name")
+    public void addNewJobSchedule(@RequestBody @Valid JobScheduleRequest jobScheduleRequest) throws SchedulerException, JobAlreadyExistException, ClassNotFoundException, IOException, JobNotAvailableException {
+        this.schedulerService.addNewJobSchedule(jobScheduleRequest);
+    }
+
+    @PutMapping(path = "/job-schedule/{id}",consumes= MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(value = HttpStatus.OK)
+    @ApiOperation(value="Replaces an existing trigger by the specified job id")
+    public void updateJobSchedule(@PathVariable(name = "id") String id, @RequestBody @Valid JobScheduleRequest jobScheduleRequest) throws SchedulerException {
+        this.schedulerService.updateJobSchedule(id, jobScheduleRequest);
+    }
+
+    @DeleteMapping(path = "/job/unschedule/{jobGroup}/{jobName}")
+    @ResponseStatus(value = HttpStatus.OK)
+    @ApiOperation(value = "Remove a trigger of the job with the specified job group and job name")
+    public void unscheduleJob(@PathVariable(name = "jobGroup") String jobGroup, @PathVariable(name = "jobName") String jobName) throws JobUnscheduleException {
+        this.schedulerService.unscheduleJob(jobName, jobGroup);
+    }
+     @DeleteMapping(path = "/job/delete/jobgroup/{jobGroup}/jobname/{jobName}")
+    @ResponseStatus(value = HttpStatus.OK)
+    @ApiOperation(value = "Delete the job and containing triggers with the specified job group and job name")
+    public void deleteJob(@PathVariable(name = "jobGroup") String jobGroup, @PathVariable(name = "jobName") String jobName) throws JobDeleteException {
+        this.schedulerService.deleteJob(jobName, jobGroup);
+    }
+
+    @DeleteMapping(path = "/job/pause/jobgroup/{jobGroup}/jobname/{jobName}")
+    @ResponseStatus(value = HttpStatus.OK)
+    @ApiOperation(value = "Pause all triggers of a job specified by the job group and job name")
+    public void pauseJob(@PathVariable(name = "jobGroup") String jobGroup, @PathVariable(name = "jobName") String jobName) throws SchedulerException {
+        this.schedulerService.pauseJob(jobName, jobGroup);
+    }
+
+}
+\end{lstlisting}
+Ein Repository-Interface ist, wie in \ref{subsubsec:RestAPI} bereits erwähnt, für den Datenbankzugriff (auf die MongoDB) notwendig. Dies wurde entsprechend für alle Ressourcen implementiert. Das Repository-Interface für die Entität delivery sieht wie folgt aus.
+\begin{lstlisting}[language=JAVA,caption= Delivery Repository]
+@Repository
+public interface DeliveryRepository extends MongoRepository<Delivery, String>  {
+}
+\end{lstlisting}
+Die notwendige Service-Klasse für delivery ist in Listing 7.4 dargestellt. Um auf vorimplementierte Methoden zugreifen zu können ist eine Instanz vom Typ DeliveryRepository notwendig. Zu den vorimplementierten Methoden gehören die Methode \textit{findAll()} und die Methode \textit{findById()}. Die zuerst genannte Methode liefert eine Liste von Lieferungen zurück, die zweite die Lieferung mit der entsprechenden id, wenn diese vorhanden ist. Gibt es keine Lieferung mit der konkreten id wird null zurückgegeben.
+
+\begin{lstlisting}[language=JAVA,caption= Delivery Service]
+@Service
+@RequiredArgsConstructor
+public class DeliveryService {
+	
+	private final DeliveryRepository deliveryRepository;
+	
+    public List<Delivery> getDeliveries(){
+    	return deliveryRepository.findAll();
+    }
+
+    public Delivery getDeliveryById(String deliveryId) {
+    	Optional<Delivery> findById = deliveryRepository.findById(deliveryId);
+    	return findById.isPresent() ? findById.get() : null;
+    }
+\end{lstlisting}
+Die letzte Komponente ist die entsprechende  Delivery-Klasse, welche die Delivery-Entität selbst darstellt. Sie enthält die notwendigen Attribute einer Lieferung. Zu den Attributen einer Lieferung gehören beispielsweise die id, das Lieferdatum, der Lieferant sowie der Mitarbeiter des Unternehmens, welcher die Lieferung angenommen hat.
+\begin{lstlisting}[language=JAVA,caption= Delivery][H]
+@Document(collection = "Delivery")
+@Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class Delivery {
+
+    @Id
+    private int id;
+
+    private int documentNumber;
+
+    private String deliveryDate;
+
+    private String deliveryNote;
+
+    public String supplierMatchcode;
+
+    private Supplier supplier;
+
+    private Employee contactEmployee;
+
+    private List<PartDelivery> partDeliveries;
+}
+\end{lstlisting}
+Alle vier Bestandteile (Controller-, Repository-, Service-, Entity-Representation-Class) existieren ebenfalls für order, employee, supplier, manufacturer und product sowie für Scheduler, Batch-Job und Batch-Job-Settings.
+
+\vspace{5pt}
+\subsection{Endpoints}
+Beim Aufbau der API wurden wie bereits in Abschnitt \ref{subsubsec:RestAPI} beschrieben, die sechs Entitäten: order, employee, supplier, manufacturer und product sowie Scheduler, Batch-Job und Batch-Job-Settings berücksichtigt. In den nachfolgenden Tabellen werden verschiedene Enpoints für den Zugriff auf die Informationen einzelner Entitäten sowie für das Managen verschiedener Batch-Jobs dargestellt.
+In Tabelle \ref{tab:endpoints} sind die Endpoints der API nach Entity-Zugehörigkeit aufgelistet. Zudem enthält die Tabelle Angaben zu den Parametern, welche übergeben werden müssen und welche Rückgabe zu erwartet ist. Für alle Entitäten können sowohl alle Objekte (z.B. alle Lieferungen) als auch bestimmte einzelne Objekte (eine Lieferung mit bestimmter id) erfragt werden.
+
+\begin{table}[H]
+\begin{tabular}{|p{2.3cm}|p{6.5cm}|p{3cm}|p{2.5cm}|l}
+\cline{1-4}
+\textbf{Entity}                    & \textbf{Request (GET)} & \textbf{Parameter (String)} & \textbf{Rückgabe  \newline (JSON \newline Object)} &  \\ \cline{1-4}
+\multirow{2}{*}{\textbf{Delivery}} &    /api/v1/deliveries     &                &  Array mit allen Lieferungen        &  \\ \cline{2-4}
+                          &    /api/v1/deliveries/{deliveryId}     &  deliveryId= \newline id einer Lieferung              &   Lieferung mit übergebener id       &  \\ \cline{1-4}
+\multirow{2}{*}{\textbf{Products}} &    /api/v1/products     &                &     Array mit allen Produkten     &  \\ \cline{2-4}
+                          &  /api/v1/products/{productId}       &   productId= \newline id eines Produktes            &   Produkt mit übergebener id       &  \\ \cline{1-4}
+\multirow{2}{*}{\textbf{Supplier}} &   /api/v1/suppliers      &                &   Array mit allen Lieferanten       &  \\ \cline{2-4}
+                          &    /api/v1/suppliers/{supplierId}     &   supplierId=\newline  id eines Lieferanten            &   Lieferant mit übergebener id       &  \\ \cline{1-4}
+\multirow{2}{*}{\textbf{Manufacturer}} &   /api/v1/manufacturers      &                &   Array mit allen Herstellern        &  \\ \cline{2-4}
+                          &    /api/v1/manufacturers/\newline{manufacturerId}     &  manufacturerID= \newline id eines Hersteller              &    Hersteller mit übergebener id      &  \\ \cline{1-4}
+\multirow{2}{*}{\textbf{Order}} &   /api/v1/orders      &                &    Array mit allen Bestellungen      &  \\ \cline{2-4}
+                          &    /api/v1/orders/{orderId}     &      orderId=\newline  id einer Bestellung          &     Bestellung mit übergebener id     &  \\ \cline{1-4}
+\multirow{2}{*}{\textbf{Employee}} &   /api/v1/employees      &                &  Array mit allen Mitarbeitern         &  \\ \cline{2-4}
+                          &    /api/v1/employees/{employeeId}     &    employeeId=\newline  id eines Mitarbeiters            &     Mitarbeiter mit übergebener id     &  \\ \cline{1-4}
+\end{tabular}
+\caption{Endpoints}
+\label{tab:endpoints}
+\end{table}
+\newpage
+Um die Daten in verschiedenen Zeitabständen aus der Datenbank abrufen zu können wurden Batch-Jobs implementiert. Um diese abzurufen, zu löschen, neue Batch-Jobs hinzuzufügen, Trigger zu erhalten usw. existieren verschiedene Endpoints, welche die entsprechenden Requests ermöglichen. Die Endpoints sind in \ref{tab:endpointsBatch} dargestellt. 
+\begin{table}[H]
+\begin{tabular}{|l|p{5,5cm}|p{3.5cm}|p{2,5cm}|l}
+\cline{1-4}
+      \textbf{Entity}                    & \textbf{Request} & \textbf{Parameter (String)} & \textbf{Beschreibung} &  \\ \cline{1-4}
+\multirow{3}{*}{\textbf{Job Settings}} & GET \newline /api/v1/settings/batch-jobs & jobGroup= \newline Bezeichner für Jobgruppe \newline jobName= \newline Bezeichner für Jobname  & alle verfügbaren Batch Job Settings abrufen &  \\ \cline{2-4}
+                  & DELETE \newline /api/v1/settings/batch-jobs/jobgroup \newline/{jobGroup}/jobname/{jobName} &  & Batch Job Template mit spezifischer jobGroup und jobName entfernen  &  \\ \cline{2-4}
+                  & POST \newline /api/v1/settings/batch-job &  & Batch Job Template hinzufügen  &  \\ \cline{1-4}
+\multirow{5}{*}{\textbf{Jobs}} & GET /api/v1/jobs &  & Jobs, bestehend aus Instanz, Trigger und Job-Info  &  \\ \cline{2-4}
+                  & GET /api/v1/jobs/instances &  & Rückgabe aller Quartz Jobs &  \\ \cline{2-4}
+                  & GET /api/v1/jobs/triggers &  & Rückgabe aller Quartz Trigger &  \\ \cline{2-4}
+                  & GET \newline /api/v1/jobs/scheduler-job-infos &  & Rückgabe aller Job Infos &  \\ \cline{2-4}
+                  & DELETE \newline /api/v1/jobs/infos/{id} & id= id eines Jobs  & Job-Infos mit angegebener id entfernen &   \\ \cline{1-4}
+\end{tabular}
+\caption{Endpoints Batch Jobs}
+\label{tab:endpointsBatch}
+\end{table}
+In Tabelle  \ref{tab:endpointsScheduler} sind weitere Möglichkeit für das Batch-Job Scheduling aufgelistet.
+\newpage
+\begin{table}[H]
+\begin{tabular}{|p{1,6cm}|p{5,4cm}|p{3,8cm}|p{3,6cm}|l}
+\cline{1-4}
+       \textbf{Entity}                    & \textbf{Request} & \textbf{Parameter (String)} & \textbf{Beschreibung} &  \\ \cline{1-4}
+\multirow{7}{*}{\textbf{Scheduler}} & POST \newline /api/v1/scheduler/job-schedule & \{ 
+   jobName: string,\newline
+   jobGroup: string,\newline
+   jobClass: string,\newline
+   cronExpression: string,\newline
+   repeatTime: number,\newline
+   cronJob: boolean,\newline
+   jobData: object\} & Planen eines neuen Jobs mit entsprechenden Batch-Job Stettings, welche durch jobGroup und jobName festgelegt sind &  \\ \cline{2-4}
+                  & PUT \newline /api/v1/scheduler/job-schedule/{id}  & id = Job id\newline
+\{ jobName: string,\newline
+  jobGroup: string,\newline
+  jobClass: string,\newline
+  cronExpression: string,\newline
+  repeatTime: number,\newline
+  cronJob: boolean,\newline
+  jobData: object 
+\}  & Existierenden Trigger ersetzen durch angegebene Job id &  \\ \cline{2-4}
+& DELETE\newline /api/v1/scheduler/job/\newline unschedule/{jobGroup}/{jobName}  & jobGroup= Bezeichner für Jobgruppe \newline jobName= Bezeichner für Jobname & Trigger des Jobs mit der angegebenen jobGroup und dem jobName entfernen &  \\ \cline{2-4}
+                  & DELETE \newline /api/v1/scheduler/job/delete/\newline jobgroup/{jobGroup}/\newline jobname/{jobName} & jobGroup= Bezeichner für Jobgruppe \newline jobName= Bezeichner für Jobname & Job und enthaltene Trigger mit der angegebenen jobGroup und dem jobName entfernen &  \\ \cline{2-4}
+                  & DELETE \newline /api/v1/scheduler/job/pause/\newline jobgroup/{jobGroup}/\newline jobname/{jobName} & jobGroup= Bezeichner für Jobgruppe \newline jobName= Bezeichner für Jobname & Trigger eines durch die jobGroup und den jobName spezifizierten Jobs pausieren  &  \\ \cline{2-4}
+                  & PUT \newline /api/v1/scheduler/job/\newline resume/ jobgroup/{jobGroup}/ \newline jobname/{jobName} & jobGroup= Bezeichner für Jobgruppe \newline jobName= Bezeichner für Jobname & Trigger eines durch die jobGroup und den jobName angegebenen Jobs wieder aufnehmen  &  \\ \cline{2-4}
+                  & POST \newline /api/v1/scheduler/job/start/\newline jobgroup/{jobGroup}/\newline jobname/{jobName}  & jobGroup= Bezeichner für Jobgruppe \newline jobName= Bezeichner für Jobname & Job mit der angegebenen jobGroup und dem jobName jetzt einmal ausführen &  \\ \cline{1-4}
+\end{tabular}
+\caption{Scheduler Endpoints}
+\label{tab:endpointsScheduler}
+\end{table}
+
+

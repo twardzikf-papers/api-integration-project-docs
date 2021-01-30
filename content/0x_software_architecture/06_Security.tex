@@ -1,0 +1,47 @@
+\namedsection{Security}{M} \label{section:security}
+Das von uns angebotene Produkt stellt dem Nutzer sensible Daten von Endkunden zur Verfügung, daher war eine der wichtigsten Anforderungen, die wir erfüllen mussten, die Vertraulichkeit der Daten zu gewährleisten und den Zugang nur für autorisierte Systembenutzer zu garantieren. Ohne die Erfüllung dieser Anforderungen hätte sich die Software als nutzlos erwiesen - egal wie gut sie mit den restlichen Aufgaben zurechtkam.\\ 
+Da die von unserem Programm aufbereiteten Daten anderen Programmen dienen sollen und diesen über Rest-API zur Verfügung gestellt werden, haben wir uns für eine Standardlösung in einem solchen Szenario entschieden, nämlich die zustands- und sitzungslose Authentifizierung und Autorisierung mit Hilfe von JSON Web Token (JWT).\\ 
+JSON Web Tokens sind eine offene, dem Industriestandard $RFC 7519$ entsprechende Methode zur sicheren Darstellung von Ansprüchen zwischen zwei Parteien. Sobald der Benutzer angemeldet ist, enthält jede nachfolgende Anfrage das JWT, so dass der Benutzer auf Routen, Dienste und Ressourcen zugreifen kann, die mit diesem Token erlaubt sind. Single Sign On ist eine Funktion, die heutzutage wegen ihres geringen Overheads und ihrer Fähigkeit, einfach über verschiedene Domänen hinweg genutzt zu werden, weit verbreitet ist.
+\subsection{Aufbau des JSON Web Tokens}
+In seiner kompakten Form bestehen JSON Web-Token aus drei durch Punkte getrennten Teilen, die sind: Header, Payload, Signatur. Daher sieht eine JWT typischerweise wie folgt aus: $aaaa.bbbb.cccc$
+
+\begin{description}
+  \item[Header:] \hfill \\ Der Header besteht in der Regel aus zwei Teilen: dem Typ des Token, der JWT ist, und dem verwendeten Signierungsalgorithmus, wie z.B. HMAC SHA256 oder RSA. \\
+  \begin{lstlisting}[language=JAVA,caption= {JWT Header}]
+{
+  "alg": "HS512",
+  "typ": "JWT"
+}
+\end{lstlisting} 
+  \item[Payload:] \hfill \\ Der zweite Teil des Tokens ist die Payload, die die Ansprüche enthält. Ansprüche sind Aussagen über eine Entität (typischerweise den Benutzer) und zusätzliche Daten. \\
+  \begin{lstlisting}[language=JAVA,caption= {JWT Payload}]
+{
+  "iss": "username",
+  "sub": "subject"
+  "issued": "timestamp",
+  "exp": "timestamp"
+}
+\end{lstlisting} 
+  \item[Signatur:] \hfill \\ Die Signatur ist der verschlüsselte Header, die verschlüsselte Payload, ein Secret, und der im Header angegebenen Algorithmus zusammen signiert. Die Signatur garantiert, dass das Token auf dem Weg zum Empfänger nicht verändert wurde.\\
+\end{description}
+
+Die Ausgabe besteht aus drei durch Punkte getrennten Base64-URL-Zeichenketten, die in HTTP-Anfragen leicht übergeben werden können. 
+
+\begin{lstlisting}[language=JAVA,caption= {Base64 kodierte JWT}]
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dnZWRJbkFzIjoiYWRtaW4iLCJpYXQiOjE0MjI3Nzk2Mzh9.gzSraSYS8EXBxLN_oWnFSRgCzcmJmMjLiuyu5CSpyHI
+\end{lstlisting} 
+
+\subsection{Authentifizierung mit JWT}
+Bei der Authentifizierung wird ein JSON-Web-Token zurückgegeben, wenn sich der Benutzer erfolgreich mit seinen Anmeldeinformationen anmeldet. 
+Immer, wenn der Benutzer auf eine geschützte Route oder Ressource zugreifen möchte, sollte der Benutzeragent die JWT senden, normalerweise im Authorization unter Verwendung des Schemas Bearer. Der Inhalt des Headers sollte wie folgt aussehen: $Authorization: Bearer <token>$\\
+Die geschützten Routen des Servers prüfen, ob eine gültige JWT im Autorisierungs-Header vorhanden ist, und wenn diese vorhanden ist, wird dem Benutzer der Zugriff auf geschützte Ressourcen gestattet.
+
+Warum haben wir uns für JSON Web Token und nicht für einen anderen tokenbasierten Mechanismus wie z.B. Simple Web Tokens (SWT) oder Security Assertion Markup Language Tokens (SAML) entschieden?
+
+Da JSON weniger wortreich als XML ist, ist die Größe von JWT bei der Kodierung ebenfalls geringer, wodurch JWT kompakter als SAML ist. Dies macht JWT zu einer guten Wahl für die Weitergabe in HTTP Anfragen.
+
+Aus Sicherheitsgründen kann SWT nur mit einem gemeinsamen Geheimnis unter Verwendung des $HMAC-Algorithmus$ symmetrisch signiert werden. JWT- und SAML-Token können jedoch ein öffentlich/privates Schlüsselpaar in Form eines $X.509-Zertifikats$ zum Signieren verwenden. Das Signieren von XML mit der digitalen XML-Signatur ohne die Einführung obskurer Sicherheitslücken ist im Vergleich zur Einfachheit des Signierens von JSON sehr schwierig.
+
+JSON-Parser sind in den meisten Programmiersprachen üblich, da sie direkt auf Objekte abbilden. Umgekehrt hat XML keine natürliche Dokument-zu-Objekt-Abbildung. Dies macht es einfacher, mit JWT zu arbeiten als mit SAML-Aussagen.
+
+Was die Verwendung betrifft, so wird JWT im Internet Maßstab verwendet. Dies verdeutlicht die Leichtigkeit der clientseitigen Verarbeitung des JSON-Web-Tokens auf verschiedenen Plattformen, insbesondere auf mobilen Geräten.

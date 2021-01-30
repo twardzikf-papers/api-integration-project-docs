@@ -1,0 +1,89 @@
+%\documentclass[a4paper,man]{apa6}
+%zweiseitig
+\documentclass[oneside,11pt,titlepage,a4paper,ngerman,bibliography=totocnumbered,listof=numbered]{scrbook} %changed twoside
+%\documentclass[oneside,11pt,titlepage,a4paper,ngerman,bibliography=totocnumbered,listof=numbered]{scrbook}
+
+\include{style}
+%\bibliography{quellen}
+
+\begin{document}
+
+
+%----------------------------------------------------------------------
+% FRONTPAGES
+
+\frontmatter
+
+\input{content/00_frontpages/00_frontpage.tex}
+\input{content/00_frontpages/01_declaration.tex}
+
+\tableofcontents{}
+
+%----------------------------------------------------------------------
+% Tables, Figures, Abbreviations
+
+\backmatter
+
+% Lists of tables and figures
+\listoftables
+\listoffigures
+\lstlistoflistings
+%\input{frontpages/05_abbreviations}
+
+
+%----------------------------------------------------------------------
+% MAIN CONTENT
+
+\mainmatter
+\input{content/01_introduction/00_introduction.tex}
+\input{content/03_organization/00_organization.tex}
+\input{content/0x_requirement_analysis/00_requirement_analysis.tex}
+\input{content/0x_implementation_possibilities/00_implementation_possibilities.tex}
+\input{content/0x_technology_stack/00_technology_stack.tex}
+\input{content/0x_software_architecture/00_software_architecture.tex}
+\input{content/0x_Development/00_development.tex}
+\input{content/0x_build_and_deployment/00_build_and_deployment.tex}
+\input{content/0x_result_and_outlook/00_result_and_outlook.tex}
+%----------------------------------------------------------------------
+% BIBLOGRAPHY AND APPENDICES
+
+\backmatter
+
+\clearpage
+\fancyhead[RE]{Literatur}
+\fancyhead[LO]{Literatur}
+% Bibliography
+\setwidesite{}						% Set page to be wider for bibliography
+\markboth{Bibliography}{Bibliography}
+\label{cha:bibliography}
+\printbibliography
+
+% Use following to separate online (websites) and offline (books, papers) sources
+%\printbibliography[heading=offline,filter=offline]
+%\printbibliography[heading=online,filter=online]
+
+%listings sind nur relevant falls Code Beispiele eingefügt werden sollen
+
+%\begin{appendices}
+
+%	\input{content/appendices/appendices.tex}
+\fancyhead[RE]{Anhang}
+\fancyhead[LO]{\slshape \nouppercase{\rightmark}}
+\appendix
+\input{content/99_appendencies/00_appendencies.tex}
+\captionsetup[table]{list=no}
+%\input{chapter/01_dependencies}
+%\input{content/appendices/a01_listings.tex} 
+	% \input{content/99_appendices/a02_listings}
+	% \input{content/99_appendices/a03_listings}
+%\end{appendices}
+
+
+\end{document}
+
+%
+% Please see the package documentation for more information
+% on the APA6 document class:
+%
+% http://www.ctan.org/pkg/apa6
+%
